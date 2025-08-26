@@ -8,8 +8,55 @@
 #include <queue>      // required
 #include <vector>     // for vector
 #include <functional> // for greater<>
-
+#include <fstream>
+#include <string.h>
+#include <sstream>
+#include <climits>
 using namespace std;
+
+#include <fstream>
+#include <iostream>
+using namespace std;
+
+void InitializeCSV(const string &filename, const string &header)
+{
+    // Check if file exists and has content
+    ifstream read(filename);
+    bool fileExists = read.good();
+    bool isEmpty = true;
+
+    if (fileExists)
+    {
+        // Check if file is empty
+        read.seekg(0, ios::end);
+        if (read.tellg() > 0)
+        {
+            read.seekg(0, ios::beg);
+            string line;
+            if (getline(read, line) && !line.empty())
+            {
+                isEmpty = false;
+            }
+        }
+    }
+    read.close();
+
+    // If file doesn't exist or is empty, create/write header
+    if (!fileExists || isEmpty)
+    {
+        ofstream write(filename);
+        if (write.is_open())
+        {
+            write << header << endl;
+            write.close();
+        }
+        else
+        {
+            cout << "Error creating file: " << filename << endl;
+        }
+    }
+}
+
 class stop
 {
 private:
@@ -17,7 +64,7 @@ private:
     string StopName;
 
 public:
-    stop() : StopID(-1), StopName("Unknown") {} // 👈 default constructor//v.g.imp
+    stop() : StopID(-1), StopName("Unknown") {} //  default constructor//v.g.imp
 
     // constructor
     stop(int StopID, string StopName)
@@ -64,6 +111,7 @@ public:
     int getFare() { return fare; }
     stop getSource() { return Source; }
     stop getDestination() { return Destination; }
+    int getrouteid() { return RouteID; }
     // display
     void DisplayRoute()
     {
@@ -86,7 +134,83 @@ private:
 public:
     // void ShortestPath(int StartID, int EndID);
     tuple<vector<int>, float, int> ShortestPath(int StartID, int EndID);
+    // yaha ios::app
+    // const isiliye kyuki change nahi hua....
+    void LoadStopInCSV(const string &filename) // this is general so any user can take any file they want
+    {
+        ifstream read(filename);
+        if (!read.is_open())
+        {
+            cout << "eror in opening .csv file\n";
+            return;
+        }
+        string line;
+        getline(read, line); // this is to ignore first header line
+        while (getline(read, line))
+        {
+            stringstream ss(line);
+            string id, stopname;
+            getline(ss, id, ',');
+            getline(ss, stopname);
+            if (id.empty() || stopname.empty())
+                continue;
+            int sid = stoi(id);
+            //  stops.insert({sid, *SearchStopbyName(stopname)});//this assumes that stop already exists in map as it it searching from map only
+            stop s = stop(sid, stopname);
+            stops.insert({sid, s}); // inserts only if does not exists if we use stops[sid]=s it will overwrite of already stop s is present so we have taken safe case here
+        }
+        read.close();
+    }
+    void LoadRouteInCSV(const string &filename)
+    {
+        ifstream read(filename);
+        if (!read.is_open())
+        {
+            cout << "error in opening file\n";
+            return;
+        }
+        string line;
+        getline(read, line);
+        while (getline(read, line))
+        {
+            stringstream ss(line);
+            string source, destination, rid, fare, distance;
 
+            getline(ss, rid, ',');
+            getline(ss, source, ',');
+            getline(ss, destination, ',');
+            getline(ss, fare, ',');
+            getline(ss, distance);
+            if (rid.empty() || source.empty() || destination.empty() || fare.empty() || distance.empty())
+                continue;
+            int id = stoi(rid);
+            int farex = stoi(fare);
+            float dist = stof(distance);
+            // if we are loading routes means we have already loaded stops so we can use search by stops here.
+            stop *s = SearchStopbyName(source);
+            stop *d = SearchStopbyName(destination);
+            // we dont need to check for s and d as we know it will search in stops which exits only but
+            // this is just a safety check (defensive programming).
+            // for eg(Someone manually edits the CSV file and types a wrong stop name.)
+            if (s && d)
+            // adjlist[s->getStopID()].push_back({id, *s,*d, farex, dist});//or first construct route
+            {
+                Route r(id, *s, *d, farex, dist);
+                adjlist[s->getStopID()].push_back(r);
+            }
+        }
+    }
+    void AddStopToCsv(const string &filename, stop s)
+    {
+        ofstream write(filename, ios::app); // this remains in append mode so it continues reading old csv file and doesnt start new...
+        if (!write.is_open())
+        {
+            cout << "error opening stops.csv\n";
+            return;
+        }
+        write << s.getStopID() << "," << s.getStopName() << endl;
+        write.close();
+    }
     void AddStop(stop s)
     {
         // stops[s.getStopID()] = s;//isse agar stops me stops does not exists t default constructor type something issue was there
@@ -96,6 +220,19 @@ public:
     { // because getSource funtion only return stop obj then we have again to find
         int SourceID = r.getSource().getStopID();
         adjlist[SourceID].push_back(r);
+        // this normal aqdding is done in both maps and .csv files as it is happening during runing of code
+        //  but loading will happen when we start running code;
+    }
+    void AddRouteToCsv(const string &filename, Route r)
+    {
+        ofstream write(filename, ios::app);
+        if (!write.is_open())
+        {
+            cout << "eror in opening csv file\n";
+        }
+        // in.csv we are putting everything in string ,but we dont need to change distance anf fare into string ofstream does that.
+        write << r.getrouteid() << "," << r.getSource().getStopName() << "," << r.getDestination().getStopName() << "," << r.getFare() << "," << r.getDistance() << endl;
+        write.close();
     }
     void DisplayRoutefromStop(int StopID)
     {
@@ -251,102 +388,9 @@ tuple<vector<int>, float, int> graph::ShortestPath(int StartID, int EndID)
         return {path, dist[EndID], fare[EndID]};
     }
 }
-// void graph::ShortestPath(int StartID, int EndID)
-// {
-//     bool startidfound = false, endidfound = false;
-//     for (auto &a : stops)
-//     {
-//         if (a.first == StartID)
-//             startidfound = true;
-//         if (a.first == EndID)
-//             endidfound = true;
-//     }
-//     if (!startidfound || !endidfound)
-//     {
-//         cout << "One f the ID's not found retry again with available stop ids\n";
-//         return;
-//     }
-//     else
-//     {
 
-//         for (auto &b : stops)
-//         {
-//             dist[b.first] = INT_MAX;
-//         }
-//         dist[StartID] = 0;
-
-//         for (auto &c : stops)
-//             parent[c.first] = -1;
-
-//         priority_queue<
-//             pair<int, int>,         // what type we store? {distance, stopID}
-//             vector<pair<int, int>>, // underlying container (default is vector)
-//             greater<pair<int, int>> // comparator → makes it min-heap
-//             >
-//             pq;
-//         pq.push({0, StartID}); // {distance, stopID}
-//                                // This means: "Start exploring from StartID with distance 0."
-//         while (!pq.empty())
-//         {
-//             auto [currDist, u] = pq.top(); // get the node with the smallest distance
-//             pq.pop();
-
-//             // If we already found a shorter distance before, skip this entry
-//             if (currDist > dist[u])
-//                 continue;
-
-//             // Explore neighbors of u
-//             for (auto &edge : adjlist[u])
-//             {
-//                 int v = edge.getDestination().getStopID();
-//                 int weight = edge.getDistance();
-
-//                 // Relaxation step: check if going via u gives a shorter path
-//                 if (dist[u] + weight < dist[v])
-//                 {
-//                     dist[v] = dist[u] + weight;
-//                     parent[v] = u;         // record the path
-//                     pq.push({dist[v], v}); // push the updated distance
-//                 }
-//             }
-//         }
-//         while (!pq.empty())
-//         {
-//             auto [CurrDist, u] = pq.top();
-//             pq.pop();
-//             if (CurrDist > dist[u])
-//                 continue;
-//             for (auto &edge : adjlist[u])
-//             {
-//                 int v = edge.getDestination().getStopID();
-//                 float weight = edge.getDistance();
-//                 if (weight + dist[u] < dist[v])
-//                 {
-//                     dist[v] = weight + dist[u];
-//                     pq.push({dist[v], v});
-//                     parent[v] = u;
-//                 }
-//             }
-//         }
-//         vector<int> path;
-//         for (int i = EndID; i != -1; i = parent[i])
-//         {
-//             path.push_back(i);
-//         }
-//         reverse(path.begin(), path.end());
-
-//         cout << "Shortest path from " << stops[StartID].getStopName() << " to " << stops[EndID].getStopName() << "is:\n";
-//         for (int i = 0; i < path.size() - 1; i++)
-//         {
-//             cout << path[i] << " -> ";
-//         }
-//         cout << path[path.size() - 1] << endl;
-//         cout << "total distance is " << dist[EndID];
-//     }
-// }
 class Ticket
 {
-    // private://in sab to private nahi rakhna ham ticket ke map to to prvate rakhre ne
 
 public:
     int ticketid;
@@ -355,11 +399,17 @@ public:
     int destid;
     int fare;
     float dist;
-    map<int, Ticket> Tickets;
-    graph g1;
-    Ticket(int id, string name, int id1, int id2, int f, float d)
+
+    //  Default constructor
+    Ticket()
+        : ticketid(0), PassengerName(""), sourceid(0), destid(0), fare(0), dist(0.0f) {}
+
+    Ticket(int id, const string &name, int id1, int id2, int f, float d)
         : ticketid(id), PassengerName(name), sourceid(id1), destid(id2), fare(f), dist(d) {}
 };
+// Ticket → represents one booked ticket (data only).
+
+// TicketSystemm → manages all tickets, booking, storage, searching, etc.
 
 class TicketSystemm
 {
@@ -369,7 +419,18 @@ private:
     int counter = 1;
 
 public:
-    void BookTicket()
+    int GetMaxTicketID()
+    {
+        int maxID = 0;
+        for (auto &p : Tickets)
+        {
+            if (p.first > maxID)
+                maxID = p.first;
+        }
+        return maxID;
+    }
+
+    Ticket BookTicket()
     {
         int sid, did;
         cout << "enter source id:\n";
@@ -384,25 +445,69 @@ public:
         if (s && d)
         {
             auto [path, totaldist, totalfare] = g1.ShortestPath(sid, did);
-            // cout << "total shortest distance is:" << totaldist << endl;
-            // cout << "total fare will be:" << totalfare << endl;
-            // this->fare = totalfare;
-            // this->dist = totaldist;
-            // this->destid = did;
-            // this->sourceid = sid;
-            // this->PassengerName = Pname;
+
             Ticket t(counter, Pname, sid, did, totalfare, totaldist);
-            // Tickets.push_back(counte++, t);my wrong interpretation
-            Tickets[t.ticketid] = t;
+
+            Tickets.insert({t.ticketid, t});
             cout << "\nTicket booked successfully!\n";
             cout << "Ticket ID: " << t.ticketid << endl;
             cout << "Passenger: " << t.PassengerName << endl;
             cout << "From " << sid << " to " << did << endl;
             cout << "Distance: " << t.dist << " km\n";
             cout << "Fare: " << t.fare << " Rs\n";
+            counter++;
+            return t;
+
+            // in adding route ,all info is taken in int main and then directly added
+            //  but here all info is taken in function, but we need(t) in savetickettocsv function so we have to return t;
         }
         else
             cout << "invalid ids found\n";
+        return Ticket(); // that is why default constructor is required
+    }
+    void AddTicketInCsv(const string &filename, Ticket t)
+    {
+        ofstream write(filename, ios::app);
+        if (!write.is_open())
+        {
+            cout << "error in opning csv file\n";
+            return;
+        }
+
+        string line;
+        write << t.ticketid << "," << t.PassengerName << "," << t.sourceid << "," << t.destid << "," << t.dist << "," << t.fare << endl;
+    }
+    void LoadTicketInCsv(const string &filename)
+    {
+        ifstream read(filename);
+        if (!read.is_open())
+        {
+            cout << "error in opening csv file\n";
+            return;
+        }
+        string line;
+        getline(read, line);
+        while (getline(read, line))
+        {
+            stringstream ss(line);
+            string id, pname, sid, did, dist, fare;
+            getline(ss, id, ',');
+            getline(ss, pname, ',');
+            getline(ss, sid, ',');
+            getline(ss, did, ',');
+            getline(ss, dist, ',');
+            getline(ss, fare);
+            int idx = stoi(id);
+            int sidx = stoi(sid);
+            int didx = stoi(did);
+            int farex = stoi(fare);
+            float distx = stof(dist);
+            if (id.empty() || pname.empty() || sid.empty() || did.empty() || dist.empty() || fare.empty())
+                continue;
+            Ticket t(idx, pname, sidx, didx, farex, distx);
+            Tickets.insert({idx, t});
+        }
+        counter = GetMaxTicketID() + 1;
     }
     void Showticket(int id)
     {
@@ -421,7 +526,7 @@ public:
     void cancelticket(int id)
     {
         auto it = Tickets.find(id);
-        if(it !=Tickets.end())
+        if (it != Tickets.end())
         {
             Tickets.erase(id);
             cout << "Ticket with id " << id << "is cancelled\n";
@@ -432,8 +537,14 @@ public:
 };
 int main()
 {
+    InitializeCSV("Stops.csv", "Stop-ID,Stop-Name");
+    InitializeCSV("Routes.csv", "RouteID,Source-Stop,Destination-Stop,Fare,Distance");
+    InitializeCSV("Tickets.csv", "Ticket-ID,Passenger-Name,Source-Stop,Destination-Stop,Fare,Distance");
     graph g1;
     TicketSystemm t1;
+    g1.LoadStopInCSV("Stops.csv");
+    g1.LoadRouteInCSV("Routes.csv");
+    t1.LoadTicketInCsv("Tickets.csv");
     int choice;
     int flag = 1;
     while (flag == 1)
@@ -464,6 +575,7 @@ int main()
             cin.ignore();
             getline(cin, name);
             g1.AddStop(stop(id, name));
+            g1.AddStopToCsv("Stops.csv", stop(id, name));
             // used stop to initialize that stop here as it was not pre existed
             // function to add[search if stop is aleady present]
         }
@@ -486,7 +598,10 @@ int main()
             stop *s = g1.SearchStopbyID(sid);
             stop *d = g1.SearchStopbyID(did);
             if (s && d)
+            {
                 g1.AddRoute(Route(rid, *s, *d, tfare, dist));
+                g1.AddRouteToCsv("Routes.csv", Route(rid, *s, *d, tfare, dist));
+            }
             else
                 cout << "invalid stop id's";
         }
@@ -502,6 +617,7 @@ int main()
         {
             int rid1;
             cout << "enter stop id:\n";
+            cin >> rid1;
             stop *s1 = g1.SearchStopbyID(rid1);
             if (s1)
                 s1->DisplayStop();
@@ -539,9 +655,24 @@ int main()
         }
         else if (choice == 9)
         {
-            t1.BookTicket();
+            Ticket t = t1.BookTicket();
+            t1.AddTicketInCsv("Tickets.csv", t);
         }
         else if (choice == 10)
+        {
+            int id;
+            cout << "enter ticket id\n";
+            cin >> id;
+            t1.Showticket(id);
+        }
+        else if (choice == 11)
+        {
+            int id;
+            cout << "enter ticket id\n";
+            cin >> id;
+            t1.cancelticket(id);
+        }
+        else
         {
             flag = 0;
         }
