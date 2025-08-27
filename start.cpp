@@ -134,6 +134,7 @@ private:
 public:
     // void ShortestPath(int StartID, int EndID);
     tuple<vector<int>, float, int> ShortestPath(int StartID, int EndID);
+    void PrintShortestPath(int StartID,int EndID);
     // yaha ios::app
     // const isiliye kyuki change nahi hua....
     void LoadStopInCSV(const string &filename) // this is general so any user can take any file they want
@@ -378,15 +379,43 @@ tuple<vector<int>, float, int> graph::ShortestPath(int StartID, int EndID)
                 }
             }
         }
+        //if route is not available between stops ....
+         if (dist[EndID] == INT_MAX) {
+        cout << "No path exists between the given stops!" << endl;
+        return {{}, -1, -1};  // Return empty path and -1 values
+    }
         vector<int> path;
         for (int i = EndID; i != -1; i = parent[i])
         {
             path.push_back(i);
         }
         reverse(path.begin(), path.end());
-
+         
         return {path, dist[EndID], fare[EndID]};
     }
+}
+void graph::PrintShortestPath(int StartID,int EndID)
+{
+    auto [path, totaldist, totalfare] = ShortestPath(StartID,EndID);
+    if(path.empty())
+        {cout << "path not found!\n";
+            return;
+        }
+
+    for (int i = 0; i < path.size();i++)
+    {
+        stop *s = SearchStopbyID(path[i]);
+            if (s)
+            {
+                cout << s->getStopName();
+                if(i<path.size()-1)
+                    cout << " ->";
+            }
+    }
+     cout << endl;  
+    cout << "Total Distance: " << totaldist << " km" << endl;
+    cout << "Total Fare: " << totalfare << " Rs" << endl;
+       
 }
 
 class Ticket
@@ -415,10 +444,12 @@ class TicketSystemm
 {
 private:
     map<int, Ticket> Tickets;
-    graph g1;
+    graph *g1;
     int counter = 1;
 
 public:
+  // Add constructor that takes graph reference
+TicketSystemm(graph *graphptr):g1(graphptr){}
     int GetMaxTicketID()
     {
         int maxID = 0;
@@ -437,15 +468,20 @@ public:
         cin >> sid;
         cout << "enter destination id\n";
         cin >> did;
+        cout << "Enter your name:\n";
         string Pname;
         cin.ignore();
         getline(cin, Pname);
-        stop *s = g1.SearchStopbyID(sid);
-        stop *d = g1.SearchStopbyID(did);
+        stop *s = g1->SearchStopbyID(sid);
+        stop *d = g1->SearchStopbyID(did);
         if (s && d)
         {
-            auto [path, totaldist, totalfare] = g1.ShortestPath(sid, did);
-
+            auto [path, totaldist, totalfare] = g1->ShortestPath(sid, did);
+              if(totaldist==-1)
+              {
+                  cout << "no route availabe in between these stops\n";
+                  return Ticket();
+              }
             Ticket t(counter, Pname, sid, did, totalfare, totaldist);
 
             Tickets.insert({t.ticketid, t});
@@ -464,6 +500,7 @@ public:
         else
             cout << "invalid ids found\n";
         return Ticket(); // that is why default constructor is required
+        // Return empty ticket if stops not found
     }
     void AddTicketInCsv(const string &filename, Ticket t)
     {
@@ -541,7 +578,7 @@ int main()
     InitializeCSV("Routes.csv", "RouteID,Source-Stop,Destination-Stop,Fare,Distance");
     InitializeCSV("Tickets.csv", "Ticket-ID,Passenger-Name,Source-Stop,Destination-Stop,Fare,Distance");
     graph g1;
-    TicketSystemm t1;
+     TicketSystemm t1(&g1);  // Pass graph pointer to ticket system
     g1.LoadStopInCSV("Stops.csv");
     g1.LoadRouteInCSV("Routes.csv");
     t1.LoadTicketInCsv("Tickets.csv");
@@ -626,6 +663,7 @@ int main()
         }
         else if (choice == 6)
         {
+            cout << "enter stop name\n";
             string rname;
             cin.ignore();
             getline(cin, rname);
@@ -651,11 +689,13 @@ int main()
             cin >> rid3;
             cout << "enter destination id:\n";
             cin >> rid4;
-            g1.ShortestPath(rid3, rid4);
+            
+            g1.PrintShortestPath(rid3, rid4);
         }
         else if (choice == 9)
         {
             Ticket t = t1.BookTicket();
+            if(t.ticketid!=0)
             t1.AddTicketInCsv("Tickets.csv", t);
         }
         else if (choice == 10)

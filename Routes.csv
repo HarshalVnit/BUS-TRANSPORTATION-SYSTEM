@@ -1,1 +1,5 @@
 RouteID,Source-Stop,Destination-Stop,Fare,Distance
+12,nagpur,amravati,10,10
+23,amravati,akola,20,20
+34,akola,jalgaon,50,50
+45,jalgaon,dhule,100,100
