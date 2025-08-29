@@ -503,7 +503,7 @@ void TicketSystemm::AddTicketInCsv(const string &filename, Ticket t)
         cout << "error in opning csv file\n";
         return;
     }
-    write << t.ticketid << "," << t.PassengerName << "," << t.sourceid << "," << t.destid << "," << t.dist << "," << t.fare << endl;
+    write << t.ticketid << "," << t.PassengerName << "," << t.sourceid << "," <<  t.destid<< "," <<t.fare << "," << t.dist  << endl;
 }
 void TicketSystemm::LoadTicketInCsv(const string &filename)
 {
@@ -523,8 +523,8 @@ void TicketSystemm::LoadTicketInCsv(const string &filename)
         getline(ss, pname, ',');
         getline(ss, sid, ',');
         getline(ss, did, ',');
-        getline(ss, dist, ',');
-        getline(ss, fare);
+        getline(ss, fare, ',');
+        getline(ss, dist);
         int idx = stoi(id);
         int sidx = stoi(sid);
         int didx = stoi(did);
@@ -551,16 +551,78 @@ void TicketSystemm::Showticket(int id)
         cout << " Ticket not found!\n";
     }
 }
+//this cancel ticket also deletes record from csv file
 void TicketSystemm::cancelticket(int id)
 {
-    auto it = Tickets.find(id);
+        auto it = Tickets.find(id);
+    //     - it becomes an iterator pointing to the pair:
+    // it->first gives you the key (id)
+    // it->second gives you the value associated with that key
+
     if (it != Tickets.end())
-    {
+    {   
         Tickets.erase(id); // here is is key for which it searches and deletes
-        cout << "Ticket with id " << id << "is cancelled\n";
+        ofstream write("temp.csv");
+        ifstream read("Tickets.csv");
+        string line;
+        getline(read, line);
+        write << line << endl;
+        while(getline(read,line))
+        {
+            string id1,pname,source,dest,fare,dist;
+            stringstream ss(line);
+            getline(ss, id1, ',');
+            getline(ss, pname, ',');
+            getline(ss, source, ',');
+            getline(ss, dest, ',');
+            getline(ss, fare, ',');
+            getline(ss, dist);
+            int id2 = stoi(id1);
+            if(id2!=id)
+            {
+                write << id1<< ','<<pname<< ','<<source<< ','<<dest<< ','<<fare<< ','<<dist << endl;
+            }
+
+        }
+        cout << "Ticket with id " << id << " is cancelled\n";
+        read.close();
+        write.close();
+        remove("Tickets.csv");
+        rename("temp.csv", "Tickets.csv");
     }
     else
         cout << "no such ticket id is found\n";
+}
+int adminisvalid(int id,string pass)
+{
+   
+    ifstream read("AdminInfo.csv");
+    if(!read.is_open())
+    cout<<"error in opening Admin csv file\n";
+    
+    else
+    
+    {
+     string line;
+     getline(read, line);//to pass header
+     while(getline(read,line))
+     {
+        stringstream ss(line);
+        string id1;
+        string pass1;
+        getline(ss, id1, ',');
+        getline(ss, pass1);
+        int id2 = stoi(id1);
+        if(id2==id && pass==pass1)
+        {
+            return 1;
+        }
+        
+     }
+    }
+    read.close();
+    return 0;
+   
 }
 int main()
 {
@@ -572,140 +634,203 @@ int main()
     g1.LoadStopInCSV("Stops.csv");
     g1.LoadRouteInCSV("Routes.csv");
     t1.LoadTicketInCsv("Tickets.csv");
-    int choice;
+    int choice1;
     int flag = 1;
+
+    int choice2;
     while (flag == 1)
     {
-        cout << "\n==========BUS NETWORK MENU==========\n";
-        cout << "1.Add Stop\n";
-        cout << "2.Add Route\n";
-        cout << "3.Display all Stops\n";
-        cout << "4.Display all Routes\n";
-        cout << "5.Search Stop by ID\n";
-        cout << "6.Search Stop by Name\n";
-        cout << "7.Display Routes from Stops\n";
-        cout << "8.Display Shortest Path\n";
-        cout << "9.Book ticket\n";
-        cout << "10.show ticket\n";
-        cout << "11.cancel ticket\n";
-        cout << "12.Exit\n";
-        cout << "Enter choice:\n";
-        cin >> choice;
+        
 
-        if (choice == 1)
+        cout << "\n==========Managing System Menu==========\n";
+        cout<<"1.Admin\n";
+        cout<<"2.Passenger\n";
+        cout << "3.exit\n";
+        cin>>choice1;
+        if(choice1==1)
         {
-            int id;
-            cout << "Enter Stop ID:\n";
-            cin >> id;
-            string name;
-            cout << "Enter Stop Name:\n";
+            int admin_id;
+            string pass;
+            cout<<"Enter Admin id:\n";
+            cin >> admin_id;
+            cout << "Enter Password:\n";
             cin.ignore();
-            getline(cin, name);
-            g1.AddStop(stop(id, name));
-            g1.AddStopToCsv("Stops.csv", stop(id, name));
-            // used stop to initialize that stop here as it was not pre existed
-            // function to add[search if stop is aleady present]
-        }
-        else if (choice == 2)
-        {
-            int sid, did, rid, tfare;
-            float dist;
-            string sname, dname;
-            cout << "Enter Route id:\n";
-            cin >> rid;
+            getline(cin, pass);
+            if(adminisvalid(admin_id,pass))
+               {
+                   int flagadmin = 1;
+                   while (flagadmin == 1)
+                   {
+                       cout << "\n==========BUS NETWORK MENU==========\n";
+                       cout << "1.Add Stop\n";
+                       cout << "2.Add Route\n";
+                       cout << "3.Exit\n";
+                       cin >> choice2;
+                       if (choice2 == 1)
+                       {
+                           int id;
+                           cout << "Enter Stop ID:\n";
+                           cin >> id;
+                           string name;
+                           cout << "Enter Stop Name:\n";
+                           cin.ignore();
+                           getline(cin, name);
+                           g1.AddStop(stop(id, name));
+                           g1.AddStopToCsv("Stops.csv", stop(id, name));
+                           // used stop to initialize that stop here as it was not pre existed
+                           // function to add[search if stop is aleady present]
+                       }
+                       else if (choice2 == 2)
+                       {
+                           int sid, did, rid, tfare;
+                           float dist;
+                           string sname, dname;
+                           cout << "Enter Route id:\n";
+                           cin >> rid;
 
-            cout << "Enter Start stop id:\n";
-            cin >> sid;
-            cout << "Enter Destination id:\n";
-            cin >> did;
-            cout << "Enter Distance between these two routes:\n";
-            cin >> dist;
-            cout << "Enter Total fare:\n";
-            cin >> tfare;
-            stop *s = g1.SearchStopbyID(sid);
-            stop *d = g1.SearchStopbyID(did);
-            if (s && d)
-            {
-                g1.AddRoute(Route(rid, *s, *d, tfare, dist));
-                g1.AddRouteToCsv("Routes.csv", Route(rid, *s, *d, tfare, dist));
-            }
-            else
-                cout << "invalid stop id's";
-        }
-        else if (choice == 3)
-        {
-            g1.DisplayallStops();
-        }
-        else if (choice == 4)
-        {
-            g1.DisplayallRoutes();
-        }
-        else if (choice == 5)
-        {
-            int rid1;
-            cout << "enter stop id:\n";
-            cin >> rid1;
-            stop *s1 = g1.SearchStopbyID(rid1);
-            if (s1)
-                s1->DisplayStop();
-            else
-                cout << "no stop found";
-        }
-        else if (choice == 6)
-        {
-            cout << "enter stop name\n";
-            string rname;
-            cin.ignore();
-            getline(cin, rname);
-            stop *s2 = g1.SearchStopbyName(rname);
-            if (s2)
-            {
-                s2->DisplayStop();
-            }
-            else
-                cout << "no stop found\n";
-        }
-        else if (choice == 7)
-        {
-            int rid2;
-            cout << "enter source id:\n";
-            cin >> rid2;
-            g1.DisplayRoutefromStop(rid2);
-        }
-        else if (choice == 8)
-        {
-            int rid3, rid4;
-            cout << "enter source id:\n";
-            cin >> rid3;
-            cout << "enter destination id:\n";
-            cin >> rid4;
+                           cout << "Enter Start stop id:\n";
+                           cin >> sid;
+                           cout << "Enter Destination id:\n";
+                           cin >> did;
+                           cout << "Enter Distance between these two routes:\n";
+                           cin >> dist;
+                           cout << "Enter Total fare:\n";
+                           cin >> tfare;
+                           stop *s = g1.SearchStopbyID(sid);
+                           stop *d = g1.SearchStopbyID(did);
+                           if (s && d)
+                           {
+                               g1.AddRoute(Route(rid, *s, *d, tfare, dist));
+                               g1.AddRouteToCsv("Routes.csv", Route(rid, *s, *d, tfare, dist));
+                           }
+                           else
+                               cout << "invalid stop id's";
+                       }
+                       else if (choice2 == 3)
+                       {
+                           flagadmin = 0;
+                       }
+                       else
+                       {
+                           cout << "enter valid choice only between 1 to 3";
+                       }
+                }
+                  
+               }
+             
 
-            g1.PrintShortestPath(rid3, rid4);
+           else
+             {
+                cout << "Invalid Credentials:\n";
+             }
         }
-        else if (choice == 9)
-        {
-            Ticket t = t1.BookTicket();
-            if (t.ticketid != 0)
-                t1.AddTicketInCsv("Tickets.csv", t);
+
+        else if(choice1==2)
+           {
+               int flagpassenger = 1;
+               while(flagpassenger==1) 
+               {
+                    {cout << "\n==========BUS NETWORK MENU==========\n";
+                    cout << "1.Display all Stops\n";
+                    cout << "2.Display all Routes\n";
+                    cout << "3.Search Stop by ID\n";
+                    cout << "4.Search Stop by Name\n";
+                    cout << "5.Display Routes from Stops\n";
+                    cout << "6.Display Shortest Path\n";
+                    cout << "7.Book ticket\n";
+                    cout << "8.show ticket\n";
+                    cout << "9.cancel ticket\n";
+                    cout << "10.Exit\n";
+                    cout << "Enter choice:\n";
+                    cin >> choice2;
+
+        
+                     if (choice2 == 1)
+                    {
+                        g1.DisplayallStops();
+                    }
+                    else if (choice2 == 2)
+                    {
+                        g1.DisplayallRoutes();
+                    }
+                    else if (choice2 == 3)
+                    {
+                        int rid1;
+                        cout << "enter stop id:\n";
+                        cin >> rid1;
+                        stop *s1 = g1.SearchStopbyID(rid1);
+                        if (s1)
+                            s1->DisplayStop();
+                        else
+                            cout << "no stop found";
+                    }
+                    else if (choice2 == 4)
+                    {
+                        cout << "enter stop name\n";
+                        string rname;
+                        cin.ignore();
+                        getline(cin, rname);
+                        stop *s2 = g1.SearchStopbyName(rname);
+                        if (s2)
+                        {
+                            s2->DisplayStop();
+                        }
+                        else
+                            cout << "no stop found\n";
+                    }
+                    else if (choice2 == 5)
+                    {
+                        int rid2;
+                        cout << "enter source id:\n";
+                        cin >> rid2;
+                        g1.DisplayRoutefromStop(rid2);
+                    }
+                    else if (choice2 ==6)
+                    {
+                        int rid3, rid4;
+                        cout << "enter source id:\n";
+                        cin >> rid3;
+                        cout << "enter destination id:\n";
+                        cin >> rid4;
+            
+                        g1.PrintShortestPath(rid3, rid4);
+                    }
+                    else if (choice2 == 7)
+                    {
+                        Ticket t = t1.BookTicket();
+                        if (t.ticketid != 0)
+                            t1.AddTicketInCsv("Tickets.csv", t);
+                    }
+                    else if (choice2 == 8)
+                    {
+                        int id;
+                        cout << "enter ticket id\n";
+                        cin >> id;
+                        t1.Showticket(id);
+                    }
+                    else if (choice2 == 9)
+                    {
+                        int id;
+                        cout << "enter ticket id\n";
+                        cin >> id;
+                        t1.cancelticket(id);
+                    }
+                    else if(choice2==10)
+                    {
+                        flagpassenger = 0;
+                    }
+                    else
+                       { cout << "Enter Valid Choice only from 1 to 10\n";
+                       }
+                }
+           }
         }
-        else if (choice == 10)
-        {
-            int id;
-            cout << "enter ticket id\n";
-            cin >> id;
-            t1.Showticket(id);
+           else if(choice1==3)
+               flag = 0;
+            else
+                 cout << "Enter valid choice from 1 to 3\n";
+                   
         }
-        else if (choice == 11)
-        {
-            int id;
-            cout << "enter ticket id\n";
-            cin >> id;
-            t1.cancelticket(id);
-        }
-        else
-        {
-            flag = 0;
-        }
+        
+        return 0;
     }
-    return 0;
-}
